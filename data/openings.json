@@ -1,0 +1,134 @@
+[
+  {
+    "id": "italian-game",
+    "name": "Italian Game",
+    "eco": "C50",
+    "family": "Open Game (1.e4 e5)",
+    "color": "white",
+    "description": "A classical opening leading to rich, tactical positions. White develops the bishop to c4 to target the f7 square and exert central pressure.",
+    "moves": ["e4", "e5", "Nf3", "Nc6", "Bc4"],
+    "fen": "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 3",
+    "plans": [
+      "Control the centre with c3 and d4",
+      "Develop all pieces and castle kingside quickly",
+      "Look for Ng5 attacking f7, or build a slow positional advantage"
+    ],
+    "branches": [
+      {
+        "id": "giuoco-piano",
+        "name": "Giuoco Piano",
+        "moves": ["e4", "e5", "Nf3", "Nc6", "Bc4", "Bc5"],
+        "fen": "r1bqk1nr/pppp1ppp/2n5/2b1p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4",
+        "description": "The 'Quiet Game'. Both sides mirror each other with harmonious development. White will play c3-d4 to fight for the centre.",
+        "plans": [
+          "Play c3 then d4 to challenge the centre",
+          "Castle kingside before launching any attack",
+          "After d4, recapture with exd4 cxd4 and aim for the Italian bishop on c4 or d3"
+        ],
+        "tags": ["classical", "solid", "positional"],
+        "keyMoves": ["c3", "d4", "O-O"]
+      },
+      {
+        "id": "giuoco-piano-main",
+        "name": "Giuoco Piano Main Line",
+        "moves": ["e4", "e5", "Nf3", "Nc6", "Bc4", "Bc5", "c3", "Nf6"],
+        "fen": "r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/2P2N2/PP1P1PPP/RNBQK2R w KQkq - 1 5",
+        "description": "Black develops the f6 knight, increasing pressure on e4. White must be careful about the e4 pawn.",
+        "plans": [
+          "Play d4 immediately — the main tabiya of the Giuoco Piano",
+          "If exd4 cxd4, bishop retreats to Bb5 or Bd3",
+          "Attack the kingside with Ng5 ideas after d4"
+        ],
+        "tags": ["classical", "active", "d4-break"],
+        "keyMoves": ["d4", "exd4", "cxd4"]
+      },
+      {
+        "id": "evans-gambit",
+        "name": "Evans Gambit",
+        "moves": ["e4", "e5", "Nf3", "Nc6", "Bc4", "Bc5", "b4"],
+        "fen": "r1bqk1nr/pppp1ppp/2n5/2b1p3/1PB1P3/5N2/P1PP1PPP/RNBQK2R b KQkq b3 0 4",
+        "description": "A swashbuckling gambit! White sacrifices the b-pawn for rapid piece development and a strong centre. Beloved by Morphy and Fischer.",
+        "plans": [
+          "After 4...Bxb4 play c3 to gain time on the bishop",
+          "Follow with d4, aiming for a powerful pawn centre",
+          "Rapid development and an early attack on the kingside"
+        ],
+        "tags": ["gambit", "aggressive", "attack", "romantic"],
+        "keyMoves": ["Bxb4", "c3", "d4"]
+      },
+      {
+        "id": "two-knights",
+        "name": "Two Knights Defense",
+        "moves": ["e4", "e5", "Nf3", "Nc6", "Bc4", "Nf6"],
+        "fen": "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4",
+        "description": "Black fights for central control immediately with 3...Nf6, attacking the e4 pawn. White must choose between the aggressive Ng5 or the solid d3/d4.",
+        "plans": [
+          "Play Ng5 attacking f7 — the Fried Liver Attack after 4.Ng5 d5 5.exd5 Nxd5 6.Nxf7",
+          "Or play the quiet d3 for a solid Italian setup",
+          "4.d4 is another option: exd4 5.e5 d5 6.Bb5"
+        ],
+        "tags": ["aggressive", "counter-attack", "active"],
+        "keyMoves": ["Ng5", "d5", "exd5"]
+      },
+      {
+        "id": "hungarian-defense",
+        "name": "Hungarian Defense",
+        "moves": ["e4", "e5", "Nf3", "Nc6", "Bc4", "Be7"],
+        "fen": "r1bqk1nr/ppppbppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4",
+        "description": "A solid but passive defence. Black avoids the complications of 3...Bc5 and aims for a solid setup. White gets easy equality and more space.",
+        "plans": [
+          "White plays d4 and d5 to gain space",
+          "Develop all pieces quickly — Black's position is solid but passive",
+          "Use the space advantage to restrict Black's counterplay"
+        ],
+        "tags": ["solid", "passive", "space"],
+        "keyMoves": ["d4", "d5", "Nc3"]
+      }
+    ]
+  },
+  {
+    "id": "caro-kann",
+    "name": "Caro-Kann Defense",
+    "eco": "B10",
+    "family": "Semi-Open Game",
+    "color": "black",
+    "description": "A solid and reliable defence against 1.e4. Black establishes a solid pawn centre without the weaknesses of the French Defense. Favoured by Petrosian, Karpov, and Anand.",
+    "moves": ["e4", "c6", "d4", "d5"],
+    "fen": "rnbqkbnr/pp2pppp/2p5/3p4/3PP3/8/PPP2PPP/RNBQKBNR w KQkq d6 0 3",
+    "plans": [
+      "Black aims for ...d5 to contest the centre",
+      "Develop the c8 bishop actively — this is easier than in the French",
+      "Long-term: solid pawn structure, endgame advantage"
+    ],
+    "branches": [
+      {
+        "id": "caro-kann-classical",
+        "name": "Classical Variation",
+        "moves": ["e4", "c6", "d4", "d5", "Nc3", "dxe4", "Nxe4", "Bf5"],
+        "fen": "rn1qkbnr/pp2pppp/2p5/5b2/3PN3/8/PPP2PPP/RNBQKB1R w KQkq - 1 5",
+        "description": "Black develops the light-squared bishop outside the pawn chain — the key advantage of the Caro-Kann over the French.",
+        "plans": [
+          "After Ng3 Bg6, play ...Nd7 then ...Ngf6",
+          "Castle queenside and counterattack on the queenside",
+          "Trade off the 'good' bishop only when it improves your position"
+        ],
+        "tags": ["classical", "solid", "active-bishop"],
+        "keyMoves": ["Ng3", "Bg6", "Nd7", "Ngf6"]
+      },
+      {
+        "id": "caro-kann-advance",
+        "name": "Advance Variation",
+        "moves": ["e4", "c6", "d4", "d5", "e5", "Bf5"],
+        "fen": "rn1qkbnr/pp2pppp/2p5/3pPb2/3P4/8/PPP2PPP/RNBQKBNR w KQkq - 1 4",
+        "description": "White gains space with e5. Black must fight for counterplay with ...c5 and ...e6, similar themes to the French but with the bishop outside.",
+        "plans": [
+          "Play ...c5 to strike at the base of White's pawn chain",
+          "Manoeuvre the knight to f5 via d7-f6-e4 or d7-b6",
+          "Black's active bishop on f5 is a key piece — don't trade it easily"
+        ],
+        "tags": ["advance", "space", "counter-break"],
+        "keyMoves": ["c5", "Nc7", "Ne7"]
+      }
+    ]
+  }
+]

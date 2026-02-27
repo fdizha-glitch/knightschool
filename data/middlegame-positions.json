@@ -1,0 +1,234 @@
+[
+  {
+    "id": "mg-001",
+    "title": "Absolute Pin on the Knight",
+    "fen": "r2qk2r/ppp2ppp/2nb1n2/3pp1B1/2B1P3/2NP1N2/PPP2PPP/R2QK2R w KQkq - 0 8",
+    "theme": ["pin", "discovered-attack"],
+    "difficulty": "beginner",
+    "sideToMove": "white",
+    "description": "White has a bishop on g5 pinning the f6 knight to the queen. Use this pin to win material or gain a decisive advantage.",
+    "hints": [
+      "Look for a way to exploit the pin on the f6 knight",
+      "What happens if you attack the knight another way while it is pinned?"
+    ],
+    "bestMoves": ["Nd5"],
+    "explanation": "Nd5! forks the queen on d8 via the outpost, exploiting the fact that Nf6 cannot recapture without exposing the queen. This is a classic 'pin and fork' combination.",
+    "followUp": "After Nd5 Qd7 Nxf6+ gxf6 Bxf6, White wins a pawn and disrupts Black's kingside."
+  },
+  {
+    "id": "mg-002",
+    "title": "Back-Rank Weakness",
+    "fen": "6k1/5pp1/7p/8/8/8/5PPP/R5K1 w - - 0 1",
+    "theme": ["back-rank", "rook"],
+    "difficulty": "beginner",
+    "sideToMove": "white",
+    "description": "Black's king is stuck behind its pawns with no escape square. White has a rook on a1. Find the winning move.",
+    "hints": [
+      "Black's king cannot move — it is trapped by its own pawns",
+      "Which file leads directly to the black king?"
+    ],
+    "bestMoves": ["Ra8"],
+    "explanation": "Ra8# is checkmate! The rook slides to the 8th rank where Black's king has no escape. This is the classic back-rank mate — always ensure your king has a flight square.",
+    "followUp": "Preventive measure: always move one of g7/h7/f7 a square forward to give the king an escape."
+  },
+  {
+    "id": "mg-003",
+    "title": "Knight Fork Opportunity",
+    "fen": "r1b1k2r/pppp1ppp/2n5/4p3/2B1Pq2/2N2N2/PPPP1PPP/R1BQK2R w KQkq - 4 6",
+    "theme": ["fork", "king-safety"],
+    "difficulty": "beginner",
+    "sideToMove": "white",
+    "description": "Black's queen on f4 has strayed into dangerous territory. White's knight can execute a deadly fork. Find it!",
+    "hints": [
+      "Which White piece can attack two valuable Black pieces simultaneously?",
+      "Think about the knight on f3 — where can it go to attack king and queen?"
+    ],
+    "bestMoves": ["Nd5"],
+    "explanation": "Nd5! forks the queen on f4 and threatens Nc7+ forking the king and rook. Black cannot save both. This shows how an over-eager queen can become a target."
+  },
+  {
+    "id": "mg-004",
+    "title": "Exploiting the Open d-File",
+    "fen": "r1bq1rk1/ppp2ppp/2n2n2/3pp3/2B1P3/2NP1N2/PPP2PPP/R1BQR1K1 b - - 0 8",
+    "theme": ["open-file", "piece-activity"],
+    "difficulty": "intermediate",
+    "sideToMove": "black",
+    "description": "Black has a strong central presence with pawns on d5 and e5. How should Black exploit the position? Think about pawn breaks and piece activity.",
+    "hints": [
+      "Black's pawns control the centre — advance one to challenge White",
+      "Which White piece is the most passive? Can you challenge it?"
+    ],
+    "bestMoves": ["d4"],
+    "explanation": "d4! gains central space, limits the White Nc3, and opens lines for Black's pieces. After Ne2 Bc5, Black has excellent piece activity and a strong centre. The principle: advance your central pawns when you have the chance."
+  },
+  {
+    "id": "mg-005",
+    "title": "Minority Attack Preparation",
+    "fen": "r1bq1rk1/pp3ppp/2nbpn2/2pp4/3P4/2PBPN2/PP3PPP/RNBQ1RK1 w - - 0 9",
+    "theme": ["pawn-break", "minority-attack", "positional"],
+    "difficulty": "intermediate",
+    "sideToMove": "white",
+    "description": "This is a Queen's Gambit Declined structure. White has the minority attack plan with b4-b5. Find the first step.",
+    "hints": [
+      "White has two queenside pawns vs Black's three. This is the minority — push it!",
+      "The plan is b4-b5xc6, creating a weakness on c6 or d5"
+    ],
+    "bestMoves": ["b4"],
+    "explanation": "b4! starts the minority attack. White will play b5 next, forcing ...bxc5 or ...cxb5. Either way, Black gets a weak pawn. This is a classic positional weapon in Queen's Gambit positions.",
+    "followUp": "After b5 cxb5 Nxb5, White has excellent piece activity and Black's queenside is weak."
+  },
+  {
+    "id": "mg-006",
+    "title": "Bishop Pair Advantage",
+    "fen": "r1bq1rk1/ppp2ppp/2n2n2/3pp3/2B1P3/2NP4/PPP2PPP/R1BQK1NR w KQ - 0 7",
+    "theme": ["bishop-pair", "piece-activity"],
+    "difficulty": "intermediate",
+    "sideToMove": "white",
+    "description": "White has the bishop pair. The position is semi-open — ideal for bishops. How can White activate the bishop pair most effectively?",
+    "hints": [
+      "Trade a knight for a bishop to give your opponent the bishop pair? No — keep yours!",
+      "Open the position for your bishops with a pawn advance"
+    ],
+    "bestMoves": ["Nf3"],
+    "explanation": "Nf3 develops a piece with tempo, readying O-O and d4. In open positions, bishop pairs are powerful — the plan is to open the position with d4, creating diagonals for both bishops. Don't rush to trade them!"
+  },
+  {
+    "id": "mg-007",
+    "title": "Outpost on d5",
+    "fen": "r1bq1rk1/pp3ppp/2n1pn2/2pp4/3P4/2PBPN2/PP3PPP/RNBQ1RK1 b - - 0 9",
+    "theme": ["outpost", "knight", "positional"],
+    "difficulty": "intermediate",
+    "sideToMove": "black",
+    "description": "Black has a perfect outpost for the knight. Find the best square for the knight that cannot be challenged by any White pawn.",
+    "hints": [
+      "A knight outpost is a square that cannot be attacked by enemy pawns",
+      "Which square in White's camp is protected by Black's c-pawn and d-pawn?"
+    ],
+    "bestMoves": ["Nd4"],
+    "explanation": "Nd4! The knight lands on d4, a magnificent outpost. No White pawn can chase it away (e3 would be a weakness). The knight dominates from d4, restricting all of White's pieces. This is the ideal knight vs bad bishop scenario."
+  },
+  {
+    "id": "mg-008",
+    "title": "Pawn Break to Open Lines",
+    "fen": "r1bq1rk1/pp3ppp/2n2n2/2ppb3/4PP2/2NB1N2/PPP3PP/R1BQ1RK1 b - - 0 9",
+    "theme": ["pawn-break", "piece-activity"],
+    "difficulty": "intermediate",
+    "sideToMove": "black",
+    "description": "Black has the bishop pair and pieces ready. Find the pawn break that opens the position for the bishops.",
+    "hints": [
+      "You have two powerful bishops — they need open diagonals to operate",
+      "Look for a central pawn advance that challenges White's structure"
+    ],
+    "bestMoves": ["d4"],
+    "explanation": "d4! grabs central space and opens the a6-f1 diagonal for the dark-squared bishop. After Nb1 e5 or Nb5 Bf6, Black's bishops become dominant. The principle: use pawn advances to activate your bishops."
+  },
+  {
+    "id": "mg-009",
+    "title": "Discovered Attack",
+    "fen": "r1bq1rk1/ppp2ppp/2nbpn2/8/2BPP3/2N2N2/PPP2PPP/R1BQK2R w KQ - 0 8",
+    "theme": ["discovered-attack", "tactic"],
+    "difficulty": "beginner",
+    "sideToMove": "white",
+    "description": "White's pieces are lined up for a discovered attack. Moving one piece will unveil a devastating threat from the piece behind it.",
+    "hints": [
+      "Look at which White pieces are aligned with Black's king or queen on a diagonal or file",
+      "Moving which White piece would reveal an attack by the piece behind it?"
+    ],
+    "bestMoves": ["Ng5"],
+    "explanation": "Ng5! threatens Nxf7 (fork: king + rook) and simultaneously uncovers the Bc4 bearing down on f7. The double threat is too much: if 1...h6 2.Nxf7 Rxf7 3.Bxf7+ Kxf7 wins material."
+  },
+  {
+    "id": "mg-010",
+    "title": "Kingside Attack: Opening Lines",
+    "fen": "r1bq1rk1/ppp2ppp/2nbpn2/3pp3/2B1P3/2NP1NP1/PPP2PP1/R1BQ1RK1 w - - 0 9",
+    "theme": ["king-safety", "attack"],
+    "difficulty": "intermediate",
+    "sideToMove": "white",
+    "description": "White has a space advantage and Black's king is on g8. White should launch a kingside attack. What is the first step?",
+    "hints": [
+      "You want to open lines against Black's king — how do you do that with pawns?",
+      "White already played g3. What's the next step in the kingside advance?"
+    ],
+    "bestMoves": ["f4"],
+    "explanation": "f4! starts a kingside pawn storm. After f5, White will have a powerful attack on the g6-h7 area. The pawn chain e4-f4-f5 creates pressure. Meanwhile Black lacks counterplay on the queenside."
+  },
+  {
+    "id": "mg-011",
+    "title": "Deflection Tactic",
+    "fen": "r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/2NP1N2/PPP2PPP/R1BQK2R b KQkq - 0 5",
+    "theme": ["deflection", "tactic"],
+    "difficulty": "beginner",
+    "sideToMove": "black",
+    "description": "Black can use a deflection tactic to win material. A key White piece is overloaded — force it away from its defensive duty.",
+    "hints": [
+      "What piece is defending an important square for White?",
+      "Can you attack that defender in a way that forces it to move, abandoning its duty?"
+    ],
+    "bestMoves": ["Ng4"],
+    "explanation": "Ng4! attacks the Bc4 and simultaneously threatens Nxf2 forking king and rook. White's knight on f3 is the only defender of f2 — if it moves (to defend the bishop), Nxf2 wins. This is a deflection/overload combo.",
+    "followUp": "After 1...Ng4 2.Bxf7+ Kxf7 3.Ne5+ Ke6 4.Nxd7 Nxd7 the position is complicated but Black has compensation."
+  },
+  {
+    "id": "mg-012",
+    "title": "Isolated Queen's Pawn",
+    "fen": "r1bq1rk1/pp3ppp/2n2n2/2p5/4p3/2NB1N2/PPP2PPP/R1BQR1K1 w - - 0 10",
+    "theme": ["isolated-pawn", "positional", "blockade"],
+    "difficulty": "advanced",
+    "sideToMove": "white",
+    "description": "Black has an isolated pawn on e4. White should blockade it and convert the long-term weakness. What is the right strategic plan?",
+    "hints": [
+      "An isolated pawn can only be defended by pieces, not pawns — this is its weakness",
+      "Place a piece in front of the isolated pawn to blockade it permanently"
+    ],
+    "bestMoves": ["Ne5"],
+    "explanation": "Ne5! blockades the isolated e4 pawn on the ideal square. The knight on e5 is powerful, cannot be dislodged, and attacks c6. White will then target the e4 pawn with Re1 and other pieces. The principle: blockade weaknesses with knights.",
+    "followUp": "After Ne5 Nxe5 Rxe5, the isolated pawn is fixed and White will win it in the long run."
+  },
+  {
+    "id": "mg-013",
+    "title": "Hanging Pawns Position",
+    "fen": "r2q1rk1/pp3ppp/2n1bn2/2pp4/3P4/2PBB3/PP3PPP/RN1Q1RK1 w - - 0 12",
+    "theme": ["hanging-pawns", "positional"],
+    "difficulty": "advanced",
+    "sideToMove": "white",
+    "description": "Black has hanging pawns on c5 and d5. In this position, should White attack them or allow them to advance? Find the best plan.",
+    "hints": [
+      "Hanging pawns are strong if they can advance, weak if they are fixed",
+      "Attack the base of the pawn chain — which pawn is harder to defend?"
+    ],
+    "bestMoves": ["Nb2"],
+    "explanation": "Nb2 aims to route the knight to c4, targeting the d5 and b6 pawns. The correct strategy is to restrain the hanging pawns with Nc4-Nd6 and attack them. Don't allow ...d4! which frees Black's position."
+  },
+  {
+    "id": "mg-014",
+    "title": "Exchange Sacrifice for Attack",
+    "fen": "r1bq1rk1/pp2ppbp/2np1np1/8/3NP3/2N1BP2/PPP3PP/R2QKB1R w KQ - 0 9",
+    "theme": ["exchange-sacrifice", "initiative", "attack"],
+    "difficulty": "advanced",
+    "sideToMove": "white",
+    "description": "White can sacrifice the exchange for a powerful attack against Black's king. Find the right continuation.",
+    "hints": [
+      "Material isn't everything — initiative and attack can be worth more than a rook",
+      "Look for a sacrifice on d6 or c6 to open lines against the Black king"
+    ],
+    "bestMoves": ["Nd5"],
+    "explanation": "Nd5! is a positional pawn sacrifice. After Nd5 Nxd5 exd5, White has the powerful d5 pawn cramp and open e-file. If Nd5 Qxd5 Qxd5 Nxd5 Bb5, White wins material. The knight dominates d5 outpost.",
+    "followUp": "White's plan: Nd5, f4-f5, g4 kingside attack. Black lacks counterplay."
+  },
+  {
+    "id": "mg-015",
+    "title": "Prophylaxis — Stop the Threat",
+    "fen": "r1bq1rk1/ppp2ppp/3bpn2/3p4/3P4/3BPN2/PPP2PPP/R1BQK2R w KQ - 0 8",
+    "theme": ["prophylaxis", "positional"],
+    "difficulty": "intermediate",
+    "sideToMove": "white",
+    "description": "Black is threatening ...e5 to activate the bishop on d6 and gain central space. White must prevent this with prophylaxis. Find the best preventive move.",
+    "hints": [
+      "Think like Nimzowitsch: 'First restrain, then blockade, then destroy'",
+      "Which move prevents ...e5 while also being useful developmentally?"
+    ],
+    "bestMoves": ["e4"],
+    "explanation": "e4! anticipates and prevents ...e5 by claiming the e4 square first. After dxe4 Nxe4 Nxe4 Bxe4, White has the bishop pair and central control. Prophylaxis means preventing your opponent's plans before they can execute them.",
+    "followUp": "White plans Bc2, Qd3, 0-0 with easy play. Black's bishop on d6 is no longer active."
+  }
+]

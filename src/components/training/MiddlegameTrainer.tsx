@@ -45,6 +45,7 @@ export function MiddlegameTrainer({ position, onNext }: MiddlegameTrainerProps) 
   } | null>(null);
   const [hintsUsed, setHintsUsed] = useState(0);
   const [attempts, setAttempts] = useState(0);
+  const [pointsEarned, setPointsEarned] = useState(0);
   const [showSolution, setShowSolution] = useState(false);
   // Engine analysis of the puzzle's starting position
   const startAnalysisRef = useRef<EngineAnalysis | null>(null);
@@ -107,7 +108,10 @@ export function MiddlegameTrainer({ position, onNext }: MiddlegameTrainerProps) 
       setMoveFeedback({ quality, san, isBest });
 
       if (isBest || quality === "excellent" || quality === "good") {
-        addTacticsScore(hintsUsed === 0 ? 10 : 5);
+        // Full points only for a first-try solve without hints
+        const points = attempts === 0 && hintsUsed === 0 ? 10 : 5;
+        addTacticsScore(points);
+        setPointsEarned(points);
         setPhase("solved");
         addCoachMessage({
           type: quality === "excellent" || isBest ? "praise" : "feedback",
@@ -137,7 +141,7 @@ export function MiddlegameTrainer({ position, onNext }: MiddlegameTrainerProps) 
         setPhase("reviewing");
       }
     },
-    [phase, position, hintsUsed, analyze, addCoachMessage, addTacticsScore, recordMistake]
+    [phase, position, attempts, hintsUsed, analyze, addCoachMessage, addTacticsScore, recordMistake]
   );
 
   function handleTryAgain() {
@@ -238,7 +242,7 @@ export function MiddlegameTrainer({ position, onNext }: MiddlegameTrainerProps) 
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-bold text-emerald-700 dark:text-emerald-400">
-                  Position solved! {attempts === 1 ? "+10 pts" : "+5 pts"}
+                  Position solved! +{pointsEarned} pts
                 </p>
                 {attempts > 1 && (
                   <p className="text-xs text-zinc-500 mt-0.5">

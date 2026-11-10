@@ -144,7 +144,8 @@ export function ChessBoard({
       )}
 
       {/* Board */}
-      <div className="relative flex-1">
+      {/* Keep the whole board on screen on shorter laptop displays */}
+      <div className="relative flex-1 max-w-[min(100%,calc(100vh-14rem))]">
         {isThinking && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/10 rounded-lg pointer-events-none">
             <div className="bg-white dark:bg-zinc-800 rounded-lg px-3 py-1 text-xs font-medium text-zinc-600 dark:text-zinc-300 shadow-lg animate-pulse-soft">
@@ -161,7 +162,10 @@ export function ChessBoard({
           customSquareStyles={customSquareStyles}
           customArrows={customArrows as any}
           animationDuration={settings.animationSpeed}
-          boardWidth={boardSize}
+          // Only pass boardWidth when fixed: react-chessboard spreads props over
+          // its own measured width, so an explicit undefined leaves it at zero
+          // and it renders only its loading piece.
+          {...(boardSize ? { boardWidth: boardSize } : {})}
           customBoardStyle={{
             borderRadius: "8px",
             boxShadow: "0 4px 24px rgba(0,0,0,0.25)",

@@ -18,7 +18,9 @@ export function EvalBar({
   className = "",
 }: EvalBarProps) {
   const percent = useMemo(
-    () => (mate !== null ? (mate > 0 ? 100 : 0) : evalToPercent(evaluation)),
+    // Mates are folded into `evaluation` (±MATE_CP), so its sign is reliable
+    // even for mate 0, where `mate` alone can't say who won.
+    () => (mate !== null ? (evaluation > 0 ? 100 : 0) : evalToPercent(evaluation)),
     [evaluation, mate]
   );
 

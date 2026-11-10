@@ -5,7 +5,6 @@ import { Chess } from "chess.js";
 import type { Opening, OpeningBranch } from "@/types";
 import { useGameStore } from "@/lib/store/game-store";
 import { useProgressStore } from "@/lib/store/progress-store";
-import { useCoach } from "@/hooks/useCoach";
 import { ChessBoard } from "@/components/board/ChessBoard";
 import { MoveHistory } from "@/components/board/MoveHistory";
 import { CoachPanel } from "@/components/coach/CoachPanel";
@@ -31,147 +30,129 @@ export function OpeningTrainer({
 
   const {
     makeMove,
-    loadFen,
     resetGame,
     setOrientation,
     setMode,
     setCurrentOpeningId,
     addCoachMessage,
-    fen,
+    undoMove,
+    history,
   } = useGameStore();
   const { updateOpeningProgress } = useProgressStore();
-  const { askCoach } = useCoach();
 
   const [moveIndex, setMoveIndex] = useState(0);
   const [status, setStatus] = useState<TrainStatus>("playing");
   const [feedback, setFeedback] = useState("");
   const [accuracy, setAccuracy] = useState({ correct: 0, total: 0 });
   const [showExplanation, setShowExplanation] = useState(false);
-  const internalChessRef = useRef(new Chess());
+  const advanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const isPlayersMove = useCallback(
+    (idx: number) => (playerColor === "white" ? idx % 2 === 0 : idx % 2 === 1),
+    [playerColor]
+  );
 
   // ── Setup ─────────────────────────────────────────────────────────────────
 
-  useEffect(() => {
+  const startDrill = useCallback(() => {
+    if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
     resetGame();
-    internalChessRef.current = new Chess();
-    setOrientation(playerColor);
-    setMode("openings");
-    setCurrentOpeningId(openingId);
     setMoveIndex(0);
     setStatus("playing");
     setFeedback("");
     setShowExplanation(false);
     setAccuracy({ correct: 0, total: 0 });
-  }, [opening.id, branch?.id, playerColor]);
+  }, [resetGame]);
 
-  // Auto-play engine moves
+  useEffect(() => {
+    startDrill();
+    setOrientation(playerColor);
+    setMode("openings");
+    setCurrentOpeningId(openingId);
+  }, [openingId, playerColor, startDrill, setOrientation, setMode, setCurrentOpeningId]);
+
+  useEffect(
+    () => () => {
+      if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
+    },
+    []
+  );
+
+  // Play the opponent's book moves, and finish when the line runs out
   useEffect(() => {
     if (status !== "playing") return;
-    const isPlayerTurn =
-      (playerColor === "white" && moveIndex % 2 === 0) ||
-      (playerColor === "black" && moveIndex % 2 === 1);
-
-    if (!isPlayerTurn && moveIndex < moves.length) {
-      // Engine plays
-      const timer = setTimeout(() => {
-        playBookMove(moveIndex);
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [moveIndex, status, playerColor]);
-
-  function playBookMove(idx: number) {
-    const sanMove = moves[idx];
-    if (!sanMove) return;
-    try {
-      const chess = internalChessRef.current;
-      const result = chess.move(sanMove);
-      makeMove({ from: result.from, to: result.to, promotion: result.promotion });
-      setMoveIndex(idx + 1);
-    } catch {
+    if (moveIndex >= moves.length) {
       setStatus("complete");
+      return;
     }
-  }
+    if (isPlayersMove(moveIndex)) return;
+
+    const timer = setTimeout(() => {
+      const uci = sanToUci(useGameStore.getState().fen, moves[moveIndex]);
+      const played =
+        uci &&
+        makeMove({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] });
+      if (!played) {
+        console.error(`Book move ${moves[moveIndex]} is illegal in ${openingId}`);
+        setStatus("complete");
+        return;
+      }
+      setMoveIndex(moveIndex + 1);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [moveIndex, status, moves, isPlayersMove, makeMove, openingId]);
 
   // ── Player Move Handler ───────────────────────────────────────────────────
 
   const handleMovePlayed = useCallback(
-    (san: string) => {
+    (_san: string, from: string, to: string) => {
       if (status !== "playing") return;
 
       const expected = moves[moveIndex];
-      if (!expected) {
-        setStatus("complete");
-        return;
-      }
+      if (!expected) return;
 
-      // Normalise: accept both the exact SAN and equivalent UCI
-      const chess = internalChessRef.current;
-      // We've already applied the move via makeMove in ChessBoard.
-      // Check if the played SAN matches the book SAN (try chess.js to normalise expected)
-      const tempChess = new Chess(
-        internalChessRef.current.history({ verbose: true }).reduce((c, m) => {
-          // Replay without last move to get the pre-move FEN
-          return c;
-        }, new Chess()).fen()
-      );
+      // The board always follows the book line, so the position before this
+      // move is the book line up to moveIndex. Compare squares rather than
+      // SAN text so "+", "#" and disambiguation differences don't matter.
+      const expectedUci = sanToUci(fenAfter(moves.slice(0, moveIndex)), expected);
+      const correct = expectedUci?.slice(0, 4) === `${from}${to}`;
 
-      const correct = san === expected || isEquivalentMove(san, expected, fen);
+      setAccuracy((a) => ({
+        correct: a.correct + (correct ? 1 : 0),
+        total: a.total + 1,
+      }));
+      updateOpeningProgress(openingId, correct);
 
       if (correct) {
-        // Update internal ref to match game state
-        internalChessRef.current = new Chess(fen);
-        setAccuracy((a) => ({ correct: a.correct + 1, total: a.total + 1 }));
-        updateOpeningProgress(openingId, true);
         setFeedback("✓ Correct!");
         setStatus("correct");
-        setTimeout(() => {
-          setStatus("playing");
+        advanceTimerRef.current = setTimeout(() => {
           setFeedback("");
-          const next = moveIndex + 1;
-          setMoveIndex(next);
-          if (next >= moves.length) setStatus("complete");
+          setMoveIndex(moveIndex + 1);
+          setStatus("playing");
         }, 800);
       } else {
-        // Wrong move — undo it
-        setAccuracy((a) => ({ correct: a.correct, total: a.total + 1 }));
-        updateOpeningProgress(openingId, false);
         setFeedback(`✗ Expected ${expected}`);
         setStatus("wrong");
-        // Ask coach to explain
         addCoachMessage({
           type: "feedback",
-          content: `The book move here is **${expected}**. ${getMoveReason(expected, moves, moveIndex, opening)}`,
+          content: `The book move here is **${expected}**. ${getMoveReason(expected, branch?.plans ?? opening.plans)}`,
           detail: branch?.description ?? opening.description,
         });
       }
     },
-    [status, moves, moveIndex, fen, opening, branch, openingId]
+    [status, moves, moveIndex, opening, branch, openingId, updateOpeningProgress, addCoachMessage]
   );
 
   function handleRetry() {
-    // Undo the wrong move
-    useGameStore.getState().undoMove();
-    // Sync internal ref
-    internalChessRef.current = new Chess(useGameStore.getState().fen);
+    undoMove();
     setStatus("playing");
     setFeedback("");
   }
 
-  function handleRestart() {
-    resetGame();
-    internalChessRef.current = new Chess();
-    setMoveIndex(0);
-    setStatus("playing");
-    setFeedback("");
-    setShowExplanation(false);
-    setAccuracy({ correct: 0, total: 0 });
-  }
+  const handleRestart = startDrill;
 
-  const isPlayerTurn =
-    status === "playing" &&
-    ((playerColor === "white" && moveIndex % 2 === 0) ||
-      (playerColor === "black" && moveIndex % 2 === 1));
+  const isPlayerTurn = status === "playing" && isPlayersMove(moveIndex);
 
   const progressPct =
     moves.length > 0 ? Math.round((moveIndex / moves.length) * 100) : 0;
@@ -289,7 +270,7 @@ export function OpeningTrainer({
 
         {/* Move history */}
         <Card title="Moves Played">
-          <MoveHistory history={useGameStore.getState().history} />
+          <MoveHistory history={history} />
         </Card>
 
         {/* Coach */}
@@ -301,35 +282,15 @@ export function OpeningTrainer({
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
-function isEquivalentMove(
-  played: string,
-  expected: string,
-  fen: string
-): boolean {
-  // Try converting expected to UCI and compare
-  try {
-    const uci = sanToUci(fen, expected);
-    if (!uci) return false;
-    // played is SAN, convert expected UCI back to SAN isn't straightforward.
-    // Just return false and rely on the SAN match.
-    return false;
-  } catch {
-    return false;
-  }
+function fenAfter(sanMoves: string[]): string {
+  const chess = new Chess();
+  for (const san of sanMoves) chess.move(san);
+  return chess.fen();
 }
 
-function getMoveReason(
-  san: string,
-  moves: string[],
-  idx: number,
-  opening: Opening
-): string {
-  if (idx < opening.plans.length) {
-    return opening.plans[idx] ?? "";
-  }
+function getMoveReason(san: string, plans: string[]): string {
   if (san.startsWith("O-O")) return "Castling keeps the king safe.";
-  if (/^[a-h]4$/.test(san) || /^[a-h]5$/.test(san))
-    return "This pawn controls the center.";
-  if (/^[NBRQ]/.test(san)) return "Developing pieces is a key opening principle.";
-  return "This is the standard book move in this variation.";
+  if (/^[a-h][45]$/.test(san)) return "This pawn fights for the center.";
+  if (/^[NB]/.test(san)) return "Developing pieces is a key opening principle.";
+  return plans[0] ?? "This is the standard book move in this variation.";
 }

@@ -6,7 +6,6 @@ import type { EndgamePosition } from "@/types";
 import { useGameStore } from "@/lib/store/game-store";
 import { useProgressStore } from "@/lib/store/progress-store";
 import { useStockfish } from "@/hooks/useStockfish";
-import { uciToSan } from "@/lib/utils/chess-utils";
 import { ChessBoard } from "@/components/board/ChessBoard";
 import { MoveHistory } from "@/components/board/MoveHistory";
 import { CoachPanel } from "@/components/coach/CoachPanel";
@@ -51,99 +50,90 @@ export function EndgameTrainer({ position, onNext }: EndgameTrainerProps) {
     setMoveCount(0);
     setShowTheory(false);
 
-    // Get initial analysis
-    setTimeout(() => analyze(position.fen), 200);
-  }, [position.id]);
+    // Initial evaluation for the eval bar
+    analyze(position.fen);
+  }, [position, analyze, loadFen, setOrientation, setMode, setCurrentPositionId]);
 
   // ── Check for game end ────────────────────────────────────────────────────
 
   useEffect(() => {
     if (result) return;
     const chess = new Chess(fen);
+    if (!chess.isGameOver()) return;
 
-    if (chess.isGameOver()) {
-      if (chess.isCheckmate()) {
-        // Who won?
-        const winnerIsPlayer =
-          (chess.turn() !== (position.sideToMove === "white" ? "w" : "b"));
-        const r: EndgameResult = winnerIsPlayer ? "win" : "loss";
-        setResult(r);
-        if (r === "win") {
-          addEndgameScore(10);
-          addCoachMessage({
-            type: "praise",
-            content: "Checkmate! You executed the endgame perfectly!",
-            detail: position.explanation,
-          });
-        } else {
-          addCoachMessage({
-            type: "mistake",
-            content: "Oops — you got mated! Study the defensive technique.",
-            detail: position.explanation,
-          });
-        }
-      } else if (chess.isDraw()) {
-        const r: EndgameResult =
-          position.objective === "draw" ? "win" : "loss";
-        setResult(r);
+    if (chess.isCheckmate()) {
+      // The side to move is the side that got mated.
+      const playerColor = position.sideToMove === "white" ? "w" : "b";
+      const r: EndgameResult = chess.turn() !== playerColor ? "win" : "loss";
+      setResult(r);
+      if (r === "win") {
+        addEndgameScore(10);
         addCoachMessage({
-          type: r === "win" ? "praise" : "mistake",
-          content:
-            r === "win"
-              ? "Draw achieved! That's the correct result."
-              : "The game is drawn, but you should have won.",
+          type: "praise",
+          content: "Checkmate! You executed the endgame perfectly!",
+          detail: position.explanation,
+        });
+      } else {
+        addCoachMessage({
+          type: "mistake",
+          content: "Oops — you got mated! Study the defensive technique.",
           detail: position.explanation,
         });
       }
+    } else if (chess.isDraw()) {
+      // Holding a draw is the goal for "draw" and "survive" positions.
+      const r: EndgameResult = position.objective === "win" ? "loss" : "win";
+      setResult(r);
+      if (r === "win") addEndgameScore(10);
+      addCoachMessage({
+        type: r === "win" ? "praise" : "mistake",
+        content:
+          r === "win"
+            ? "Draw achieved! That's the correct result."
+            : "The game is drawn, but you should have won.",
+        detail: position.explanation,
+      });
     }
-  }, [fen]);
+  }, [fen, result, position, addEndgameScore, addCoachMessage]);
 
   // ── Player move handler ───────────────────────────────────────────────────
 
   const handleMovePlayed = useCallback(
-    async (san: string) => {
+    async () => {
       if (result || isEngineThinking) return;
-      setMoveCount((c) => c + 1);
+      const playerMoves = moveCount + 1;
+      setMoveCount(playerMoves);
 
-      // Check game over after player move
-      const chess = new Chess(useGameStore.getState().fen);
-      if (chess.isGameOver()) return; // handled by effect above
+      // Game over after the player's move is handled by the effect above
+      const fenAfterPlayer = useGameStore.getState().fen;
+      if (new Chess(fenAfterPlayer).isGameOver()) return;
 
       // Engine responds
       setIsEngineThinking(true);
       try {
-        await analyze(useGameStore.getState().fen);
-        const analysis = useGameStore.getState().lastAnalysis;
-        if (!analysis?.bestMove || analysis.bestMove === "(none)") {
-          setIsEngineThinking(false);
-          return;
-        }
+        const analysis = await analyze(fenAfterPlayer);
+        if (!analysis?.bestMove || analysis.bestMove === "(none)") return;
+        // Ignore a stale reply if the board changed (e.g. Reset) meanwhile
+        if (useGameStore.getState().fen !== fenAfterPlayer) return;
 
-        const engFen = useGameStore.getState().fen;
-        const engSAN = uciToSan(engFen, analysis.bestMove);
         const uci = analysis.bestMove;
-
         const engineMade = makeMove({
           from: uci.slice(0, 2),
           to: uci.slice(2, 4),
           promotion: uci.length === 5 ? uci[4] : undefined,
         });
+        if (!engineMade) return;
 
-        if (!engineMade) {
-          setIsEngineThinking(false);
-          return;
-        }
+        const fenAfterEngine = useGameStore.getState().fen;
+        if (new Chess(fenAfterEngine).isGameOver()) return; // effect handles it
 
-        // Check for game over after engine move
-        const chessAfter = new Chess(useGameStore.getState().fen);
-        if (chessAfter.isGameOver()) {
-          setIsEngineThinking(false);
-          return; // effect handles it
-        }
+        // Refresh the eval bar for the new position (no need to wait)
+        void analyze(fenAfterEngine);
 
-        // Provide coaching hint every 3 moves
-        if (moveCount % 3 === 0 && moveCount > 0) {
-          const keyMove = position.keyMoves[Math.floor(moveCount / 3)] ?? position.keyMoves.at(-1);
+        // Coaching reminder every 3 moves
+        if (playerMoves % 3 === 0) {
+          const keyMove =
+            position.keyMoves[Math.floor(playerMoves / 3)] ?? position.keyMoves.at(-1);
           if (keyMove) {
             addCoachMessage({
               type: "hint",
@@ -156,7 +146,7 @@ export function EndgameTrainer({ position, onNext }: EndgameTrainerProps) {
         setIsEngineThinking(false);
       }
     },
-    [result, isEngineThinking, analyze, makeMove, moveCount, position]
+    [result, isEngineThinking, analyze, makeMove, moveCount, position, addCoachMessage]
   );
 
   function handleReset() {

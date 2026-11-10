@@ -87,10 +87,11 @@ export interface PVLine {
 export interface EngineAnalysis {
   bestMove: string; // UCI e.g. "e2e4"
   bestMoveSAN?: string;
-  evaluation: number; // centipawns
-  mate: number | null;
+  evaluation: number; // centipawns, positive = white ahead (mates folded in as ±MATE_CP)
+  mate: number | null; // mate-in-N from White's view (negative = Black mates), 0 = side to move is mated
   lines: PVLine[];
   depth: number;
+  source?: "stockfish" | "fallback";
 }
 
 // ─── Coaching Types ────────────────────────────────────────────────────────

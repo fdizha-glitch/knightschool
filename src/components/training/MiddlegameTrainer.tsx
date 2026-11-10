@@ -1,12 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import type { MiddlegamePosition } from "@/types";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { EngineAnalysis, MiddlegamePosition, MoveQuality } from "@/types";
 import { useGameStore } from "@/lib/store/game-store";
 import { useProgressStore } from "@/lib/store/progress-store";
 import { useStockfish } from "@/hooks/useStockfish";
-import { useCoach } from "@/hooks/useCoach";
-import { moveQualityColor, moveQualityEmoji, classifyMoveQuality } from "@/lib/utils/chess-utils";
+import {
+  classifyMoveQuality,
+  moveQualityColor,
+  moveQualityEmoji,
+  uciToSan,
+} from "@/lib/utils/chess-utils";
 import { ChessBoard } from "@/components/board/ChessBoard";
 import { MoveHistory } from "@/components/board/MoveHistory";
 import { CoachPanel } from "@/components/coach/CoachPanel";
@@ -23,20 +27,15 @@ type Phase = "study" | "thinking" | "solved" | "reviewing";
 export function MiddlegameTrainer({ position, onNext }: MiddlegameTrainerProps) {
   const {
     loadFen,
-    resetGame,
     setOrientation,
     setMode,
     setCurrentPositionId,
-    lastAnalysis,
-    previousEval,
+    setAnalysis,
     history,
-    fen,
     addCoachMessage,
-    undoMove,
   } = useGameStore();
   const { recordMistake, addTacticsScore } = useProgressStore();
   const { analyze } = useStockfish();
-  const { askCoach, explainMove } = useCoach();
 
   const [phase, setPhase] = useState<Phase>("study");
   const [moveFeedback, setMoveFeedback] = useState<{
@@ -47,6 +46,8 @@ export function MiddlegameTrainer({ position, onNext }: MiddlegameTrainerProps) 
   const [hintsUsed, setHintsUsed] = useState(0);
   const [attempts, setAttempts] = useState(0);
   const [showSolution, setShowSolution] = useState(false);
+  // Engine analysis of the puzzle's starting position
+  const startAnalysisRef = useRef<EngineAnalysis | null>(null);
 
   // ── Setup ─────────────────────────────────────────────────────────────────
 
@@ -60,44 +61,53 @@ export function MiddlegameTrainer({ position, onNext }: MiddlegameTrainerProps) 
     setHintsUsed(0);
     setAttempts(0);
     setShowSolution(false);
+    startAnalysisRef.current = null;
 
-    // Get initial analysis
-    setTimeout(() => analyze(position.fen), 200);
-  }, [position.id]);
+    let cancelled = false;
+    analyze(position.fen).then((a) => {
+      if (!cancelled && a) startAnalysisRef.current = a;
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [position, analyze, loadFen, setOrientation, setMode, setCurrentPositionId]);
 
   // ── Move Handler ──────────────────────────────────────────────────────────
 
   const handleMovePlayed = useCallback(
     async (san: string) => {
       if (phase !== "study") return;
+      setPhase("thinking"); // lock the board while we analyse
       setAttempts((a) => a + 1);
 
-      // Analyse after move
-      await analyze();
+      const fenAfterMove = useGameStore.getState().fen;
+      const before =
+        startAnalysisRef.current ?? (await analyze(position.fen));
+      if (before) startAnalysisRef.current = before;
+      const after = await analyze(fenAfterMove);
 
-      const currentAnalysis = useGameStore.getState().lastAnalysis;
-      const prevEval = previousEval;
+      const engineBestSan =
+        before && before.source === "stockfish" && before.bestMove !== "(none)"
+          ? uciToSan(position.fen, before.bestMove)
+          : null;
       const isBest =
-        position.bestMoves.includes(san) ||
-        (lastAnalysis?.bestMove
-          ? san ===
-            (await import("@/lib/utils/chess-utils").then((m) =>
-              m.uciToSan(position.fen, lastAnalysis.bestMove)
-            ))
-          : false);
+        position.bestMoves.includes(san) || san === engineBestSan;
 
-      // Calc eval loss
-      const evalLoss = currentAnalysis
-        ? Math.max(0, prevEval - currentAnalysis.evaluation)
-        : 0;
-      const quality = classifyMoveQuality(evalLoss);
+      // Evaluations are from White's view; flip so loss is from the mover's.
+      let quality: MoveQuality;
+      if (before?.source === "stockfish" && after?.source === "stockfish") {
+        const sign = position.sideToMove === "white" ? 1 : -1;
+        const evalLoss = Math.max(0, (before.evaluation - after.evaluation) * sign);
+        quality = classifyMoveQuality(evalLoss);
+      } else {
+        // Without the engine we can only check against the stored answers.
+        quality = isBest ? "excellent" : "mistake";
+      }
 
       setMoveFeedback({ quality, san, isBest });
 
       if (isBest || quality === "excellent" || quality === "good") {
-        // Good move
-        const points = hintsUsed === 0 ? 10 : 5;
-        addTacticsScore(points);
+        addTacticsScore(hintsUsed === 0 ? 10 : 5);
         setPhase("solved");
         addCoachMessage({
           type: quality === "excellent" || isBest ? "praise" : "feedback",
@@ -108,13 +118,12 @@ export function MiddlegameTrainer({ position, onNext }: MiddlegameTrainerProps) 
           principle: position.hints[0],
         });
       } else {
-        // Suboptimal move — record and let them try again
         if (quality === "blunder" || quality === "mistake") {
           recordMistake({
             fen: position.fen,
             movePlayed: san,
-            bestMove: position.bestMoves[0] ?? "",
-            evaluation: currentAnalysis?.evaluation ?? 0,
+            bestMove: position.bestMoves[0] ?? engineBestSan ?? "",
+            evaluation: after?.evaluation ?? 0,
             mode: "middlegame",
             theme: position.theme[0],
             explanation: position.explanation,
@@ -128,14 +137,14 @@ export function MiddlegameTrainer({ position, onNext }: MiddlegameTrainerProps) 
         setPhase("reviewing");
       }
     },
-    [phase, position, previousEval, lastAnalysis, hintsUsed, analyze]
+    [phase, position, hintsUsed, analyze, addCoachMessage, addTacticsScore, recordMistake]
   );
 
   function handleTryAgain() {
-    undoMove();
+    loadFen(position.fen);
+    if (startAnalysisRef.current) setAnalysis(startAnalysisRef.current);
     setPhase("study");
     setMoveFeedback(null);
-    loadFen(position.fen);
   }
 
   function handleHint() {

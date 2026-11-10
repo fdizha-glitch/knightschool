@@ -108,12 +108,12 @@ function analyzeAndExplain(ctx: CoachContext): CoachMessage {
     analysis &&
     mode === "middlegame"
   ) {
-    const evalDiff = analysis.evaluation - previousEval;
-    // Large negative swing for the side that just moved
-    const turnMultiplier = chess.turn() === "w" ? 1 : -1;
-    const cpLoss = evalDiff * turnMultiplier;
+    // Evals are from White's view; the side that just moved is the one NOT
+    // to move now. Positive cpLoss = that side's position got worse.
+    const moverSign = chess.turn() === "w" ? -1 : 1;
+    const cpLoss = (previousEval - analysis.evaluation) * moverSign;
 
-    if (cpLoss < -200) {
+    if (cpLoss > 200) {
       return blunderFeedback(lastMoveSAN, cpLoss, ctx);
     }
   }
@@ -181,17 +181,19 @@ function explainLastMove(ctx: CoachContext): CoachMessage {
     };
   }
 
+  // How much the side that just moved lost (evals are from White's view).
+  const moverSign = fen.split(" ")[1] === "w" ? -1 : 1;
   const evalDrop =
     analysis && previousEval !== undefined
-      ? Math.abs(analysis.evaluation - previousEval)
+      ? (previousEval - analysis.evaluation) * moverSign
       : 0;
 
   if (evalDrop > 300) {
     return {
       type: "mistake",
-      content: `**${lastMoveSAN}** was a significant error (≈${(evalDrop / 100).toFixed(1)} pawn swing).`,
+      content: `**${lastMoveSAN}** was a significant error (≈${(evalDrop / 100).toFixed(1)} pawns lost).`,
       detail: analysis?.bestMove
-        ? `The engine prefers ${uciToSan(fen, analysis.bestMove) ?? analysis.bestMove} instead, which ${whyBetterMove(ctx)}.`
+        ? `Your opponent's best reply is now ${uciToSan(fen, analysis.bestMove) ?? analysis.bestMove}, which ${whyBetterMove(ctx)}.`
         : "Look for forcing moves — checks, captures, and threats — before quieter moves.",
       principle: "Always check forcing moves first (CCT: Checks, Captures, Threats).",
     };
@@ -345,8 +347,10 @@ function blunderFeedback(
   return {
     type: "mistake",
     content: `**${moveSAN}** was a serious mistake (≈${(Math.abs(cpLoss) / 100).toFixed(1)} pawns lost).`,
+    // `analysis` is for the position after the move, so its best move is the
+    // opponent's strongest reply — the punishment for the mistake.
     detail: bestSAN
-      ? `Better was **${bestSAN}** — it keeps your position solid and threatens more.`
+      ? `Your opponent can now answer with **${bestSAN}**. Before moving, check what your opponent threatens.`
       : "Look for checks, captures, and threats before playing quiet moves.",
     moves: bestSAN ? [bestSAN] : undefined,
     principle: "Before every move: 'What does my opponent threaten after this?'",

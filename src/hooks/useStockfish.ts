@@ -4,9 +4,12 @@ import { useCallback, useRef, useState } from "react";
 import type { EngineAnalysis } from "@/types";
 import { useGameStore } from "@/lib/store/game-store";
 import { useSettingsStore } from "@/lib/store/settings-store";
+import { analyzePosition } from "@/lib/stockfish/engine";
 
 interface StockfishHook {
-  analyze: (fen?: string) => Promise<void>;
+  /** Analyse `fen` (default: the current board). Resolves with the analysis,
+   *  or null if a newer analysis superseded this one. */
+  analyze: (fen?: string) => Promise<EngineAnalysis | null>;
   isAnalyzing: boolean;
   error: string | null;
 }
@@ -14,55 +17,52 @@ interface StockfishHook {
 export function useStockfish(): StockfishHook {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
+  const requestRef = useRef(0);
 
-  const { fen, setAnalysis, setThinking } = useGameStore();
-  const { settings } = useSettingsStore();
+  const setAnalysis = useGameStore((s) => s.setAnalysis);
+  const setThinking = useGameStore((s) => s.setThinking);
+  const engineDepth = useSettingsStore((s) => s.settings.engineDepth);
+  const engineLines = useSettingsStore((s) => s.settings.engineLines);
 
   const analyze = useCallback(
-    async (overrideFen?: string) => {
-      const targetFen = overrideFen ?? fen;
-      if (!targetFen) return;
+    async (overrideFen?: string): Promise<EngineAnalysis | null> => {
+      // Read the board at call time — a value captured at render time can be
+      // a move behind when this is called straight after a move.
+      const targetFen = overrideFen ?? useGameStore.getState().fen;
+      if (!targetFen) return null;
 
-      // Cancel any in-flight request
-      abortRef.current?.abort();
-      abortRef.current = new AbortController();
-
+      const requestId = ++requestRef.current;
       setIsAnalyzing(true);
       setThinking(true);
       setError(null);
 
       try {
-        const res = await fetch("/api/analyze", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            fen: targetFen,
-            depth: settings.engineDepth,
-            multiPV: settings.engineLines,
-          }),
-          signal: abortRef.current.signal,
-        });
+        const analysis = await analyzePosition(
+          targetFen,
+          engineDepth,
+          engineLines
+        );
+        if (requestId !== requestRef.current) return null;
 
-        if (!res.ok) {
-          const data = await res.json();
-          throw new Error(data.error ?? "Analysis failed");
+        // Only show it if the board still shows the analysed position.
+        if (useGameStore.getState().fen === targetFen) setAnalysis(analysis);
+        if (analysis.source === "fallback") {
+          setError("Stockfish could not load — using basic analysis.");
         }
-
-        const analysis: EngineAnalysis = await res.json();
-        setAnalysis(analysis);
+        return analysis;
       } catch (err: unknown) {
-        if (err instanceof Error && err.name === "AbortError") return;
-        const msg =
-          err instanceof Error ? err.message : "Engine analysis failed";
-        setError(msg);
+        if (requestId !== requestRef.current) return null;
+        setError(err instanceof Error ? err.message : "Engine analysis failed");
         console.error("Stockfish hook error:", err);
+        return null;
       } finally {
-        setIsAnalyzing(false);
-        setThinking(false);
+        if (requestId === requestRef.current) {
+          setIsAnalyzing(false);
+          setThinking(false);
+        }
       }
     },
-    [fen, settings.engineDepth, settings.engineLines, setAnalysis, setThinking]
+    [engineDepth, engineLines, setAnalysis, setThinking]
   );
 
   return { analyze, isAnalyzing, error };

@@ -53,7 +53,7 @@ export function useCoach(): CoachHook {
         setIsLoading(false);
       }
     },
-    [fen, lastMoveSAN, lastAnalysis, previousEval, mode, addCoachMessage, settings.ttsEnabled]
+    [addCoachMessage, settings.ttsEnabled]
   );
 
   const askCoach = useCallback(

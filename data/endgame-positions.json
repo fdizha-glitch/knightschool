@@ -1,17 +1,16 @@
 [
   {
     "id": "eg-001",
-    "title": "King and Pawn — Direct Opposition",
-    "fen": "8/8/8/8/8/2k5/2P5/2K5 w - - 0 1",
+    "title": "King and Pawn — King on the Sixth",
+    "fen": "3k4/8/3K4/3P4/8/8/8/8 w - - 0 1",
     "theme": "king-pawn",
     "difficulty": "beginner",
     "sideToMove": "white",
     "objective": "win",
-    "description": "White has a king and pawn vs lone Black king. To promote the pawn, White must use the king aggressively. The key concept is Opposition.",
-    "explanation": "White must advance the king in front of the pawn. Key idea: take the opposition — place your king directly opposite the enemy king with a single square between them. With the opposition, you can push the enemy king back. Play Kd2 then Ke3-Ke4-Ke5 with the pawn following.",
-    "keyMoves": ["Kd2", "Ke3", "Ke4", "Ke5", "c4", "c5", "c6", "c7", "c8=Q"],
-    "theoryName": "King and Pawn Endgame",
-    "theoryName": "Direct Opposition"
+    "description": "White's king stands on the sixth rank directly in front of its pawn. This is a key-square win: it works no matter who has the opposition. Promote the pawn.",
+    "explanation": "When your king reaches the sixth rank in front of a (non-rook) pawn, the win is guaranteed. Black's king holds the opposition on d8, so step to the side with Ke6 (or Kc6) rather than pushing immediately. Push the pawn only when your king protects the square in front of it, and watch for stalemate once the pawn reaches the seventh rank — keep a free square for Black's king.",
+    "keyMoves": ["Ke6", "d6", "d7", "Ke7", "d8=Q"],
+    "theoryName": "Opposition & Key Squares"
   },
   {
     "id": "eg-002",
@@ -107,20 +106,15 @@
   {
     "id": "eg-009",
     "title": "Pawn Breakthrough",
-    "fen": "8/p1p1p3/8/P1P1P3/8/8/8/7k b - - 0 1",
+    "fen": "6k1/ppp5/8/PPP5/8/8/8/6K1 w - - 0 1",
     "theme": "king-pawn",
     "difficulty": "advanced",
-    "sideToMove": "black",
+    "sideToMove": "white",
     "objective": "win",
-    "description": "Black has three pawns vs three pawns, all locked up. But one side can break through! Find the breakthrough sacrifice.",
-    "hints": [
-      "Sometimes you must sacrifice pawns to create a passed pawn",
-      "Which pawn sacrifice creates an unstoppable promotion?"
-    ],
-    "bestMoves": ["b5"],
-    "explanation": "Wait — it's Black to move but Black has pawns on a7,c7,e7 vs White's a5,c5,e5. Actually White's pawns are advanced. Let me reconsider: 1...b5! (Black actually needs ...e5 or ...c5). In this mirror position: whichever side sacrifices correctly wins. The breakthrough: if Black plays 1...e5 2.axb6 cxb6 3.c6 bxc6 4.e6 and one pawn queens first.",
-    "keyMoves": ["a6", "c6", "e6"],
-    "theoryName": "Pawn Breakthrough"
+    "description": "Three pawns face three pawns and both kings are far away. White to move can force a queen by sacrificing pawns. Find the breakthrough.",
+    "explanation": "1.b6! is the classic breakthrough. After 1...axb6 2.c6! bxc6 3.a6 the a-pawn runs through, and after 1...cxb6 2.a6! bxa6 3.c6 the c-pawn does. If Black ignores the sacrifice, White captures on a7 or c7 and queens. Black's king is too far away to stop any of it.",
+    "keyMoves": ["b6", "c6", "a6", "a7", "a8=Q"],
+    "theoryName": "Three-Pawn Breakthrough"
   },
   {
     "id": "eg-010",

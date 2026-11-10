@@ -16,7 +16,9 @@ export function formatEval(
   perspective: "w" | "b" = "w"
 ): string {
   if (mate !== null) {
-    const sign = mate > 0 ? "+" : "";
+    // mate 0 = the side to move is already checkmated; cp carries the winner.
+    if (mate === 0) return cp > 0 ? "1-0" : "0-1";
+    const sign = mate > 0 ? "+" : "-";
     return `${sign}M${Math.abs(mate)}`;
   }
   const adjusted = perspective === "b" ? -cp : cp;

@@ -1,15 +1,15 @@
 # ♞ KnightSchool — Interactive Chess Tutor
 
-A production-ready web app that teaches chess through interactive drills, engine analysis, and a Whisper-powered voice coaching loop.
+A web app that teaches chess through interactive drills, engine analysis, and a Whisper-powered voice coaching loop.
 
 ## Features
 
 | Feature | Details |
 |---|---|
 | **Openings** | Repertoire drill with spaced repetition — Italian, Caro-Kann, and more |
-| **Tactics** | 15 curated middlegame positions tagged by theme (pins, forks, outposts…) |
+| **Tactics** | 12 curated middlegame positions tagged by theme (pins, forks, outposts…) |
 | **Endgames** | 10 theoretical positions (Lucena, Philidor, K+P, minor pieces) |
-| **Engine Analysis** | Stockfish evaluation bar + top-3 candidate lines |
+| **Engine Analysis** | Stockfish 19 (WebAssembly, runs in the browser) — evaluation bar + top-3 candidate lines |
 | **Voice Coaching** | Hold-to-talk → Whisper STT → rule-based (or GPT-4) coaching response |
 | **TTS** | Web Speech API reads coaching messages aloud |
 | **Progress Tracking** | Accuracy %, streaks, mistake history with replay |
@@ -43,23 +43,11 @@ OPENAI_API_KEY=sk-...
 ENABLE_LLM_COACH=false
 ```
 
-### 3. Install Stockfish (recommended)
+### 3. Chess engine — nothing to install
 
-The engine analysis API uses the system `stockfish` binary.
+Stockfish 19 runs **in the browser** as WebAssembly (the "lite, single-threaded" build in `public/stockfish/`). There is no binary to install and no server work: every analysis happens on the player's own device, so the app deploys to any static-friendly host (Vercel, Netlify…) without special headers.
 
-```bash
-# Ubuntu / Debian
-sudo apt install stockfish
-
-# macOS
-brew install stockfish
-
-# Verify
-stockfish
-# Should print: Stockfish 16 by T. Romstad...
-```
-
-> **Without stockfish:** The app still works. Engine analysis falls back to basic move generation, and the coaching module uses rule-based logic. All other features are unaffected.
+> **If the engine can't load** (very old browser, blocked Web Workers): the app falls back to a basic one-move material search and shows a warning. Everything else keeps working.
 
 ### 4. Run
 
@@ -79,7 +67,7 @@ knightschool/
 │   ├── openings.json              # Opening repertoires
 │   ├── middlegame-positions.json  # 15 tactical positions
 │   └── endgame-positions.json     # 10 endgame positions
-├── public/                        # Static assets
+├── public/                        # Static assets (incl. stockfish/ WASM engine)
 ├── src/
 │   ├── app/                       # Next.js App Router pages
 │   │   ├── page.tsx               # Home / mode selection
@@ -90,7 +78,6 @@ knightschool/
 │   │   ├── settings/              # Settings page
 │   │   └── api/
 │   │       ├── transcribe/        # POST — Whisper STT endpoint
-│   │       ├── analyze/           # POST — Stockfish analysis
 │   │       └── coach/             # POST — coaching message
 │   ├── components/
 │   │   ├── board/                 # ChessBoard, EvalBar, MoveHistory
@@ -103,7 +90,7 @@ knightschool/
 │   │   ├── useVoice.ts            # Audio recording + STT hook
 │   │   └── useCoach.ts            # Coaching fetch hook
 │   ├── lib/
-│   │   ├── stockfish/engine.ts    # Stockfish child_process wrapper
+│   │   ├── stockfish/engine.ts    # Stockfish WASM Web Worker wrapper
 │   │   ├── coach/coaching.ts      # Rule-based coaching logic
 │   │   ├── data/loader.ts         # JSON data loaders
 │   │   ├── store/                 # Zustand stores (game, progress, settings)
@@ -120,7 +107,6 @@ knightschool/
 |---|---|---|
 | `OPENAI_API_KEY` | For voice | Whisper STT + optional GPT-4 coaching |
 | `ENABLE_LLM_COACH` | Optional | `"true"` to use GPT-4o-mini for coaching |
-| `STOCKFISH_PATH` | Optional | Path to stockfish binary if not on `$PATH` |
 
 ---
 
@@ -208,27 +194,6 @@ Transcribes audio using Whisper.
 { "text": "I think the best move is Nc6" }
 ```
 
-### `POST /api/analyze`
-Runs Stockfish analysis on a FEN position.
-
-**Request:**
-```json
-{ "fen": "rnbqkbnr/...", "depth": 15, "multiPV": 3 }
-```
-
-**Response:**
-```json
-{
-  "bestMove": "e2e4",
-  "evaluation": 34,
-  "mate": null,
-  "depth": 15,
-  "lines": [
-    { "moves": ["e2e4", "e7e5"], "evaluation": 34, "mate": null, "depth": 15 }
-  ]
-}
-```
-
 ### `POST /api/coach`
 Generates a coaching message (rule-based or LLM-enhanced).
 
@@ -266,8 +231,8 @@ Generates a coaching message (rule-based or LLM-enhanced).
 ### Engine Analysis
 - [ ] Open any training mode and make a move — eval bar updates
 - [ ] Click "Analyse" in coach panel — best move arrow appears (if `showBestMove` on)
-- [ ] Check `/api/analyze` returns 200 with a `bestMove` field
-- [ ] Without stockfish: should show fallback warning in response, app continues working
+- [ ] DevTools → Network: `stockfish-19-lite-single.wasm` loads once (≈1.8 MB, `application/wasm`)
+- [ ] Engine evaluations are from White's side: the bar favours White when White is better, whoever is to move
 
 ### Opening Trainer
 - [ ] Select Italian Game → drill trunk → make the correct first move (e4) — green feedback
@@ -309,7 +274,7 @@ Generates a coaching message (rule-based or LLM-enhanced).
 | Chess Logic | chess.js v1 |
 | Board UI | react-chessboard |
 | State | Zustand (persist to localStorage) |
-| Engine | Stockfish (system binary via child_process) |
+| Engine | Stockfish 19 lite (WebAssembly in a Web Worker) |
 | STT | OpenAI Whisper via `/api/transcribe` |
 | TTS | Web Speech API (browser-native) |
 | Coaching | Rule-based + optional GPT-4o-mini |
@@ -325,3 +290,9 @@ Generates a coaching message (rule-based or LLM-enhanced).
 **PGN import/export:** Add a `PGNImporter` component that parses PGN and generates opening branch objects. A `chess.js` PGN parser is already available.
 
 **Persistent cloud progress:** Replace the Zustand `localStorage` store with an API-backed store (e.g., Prisma + PostgreSQL) for multi-device sync.
+
+---
+
+## Licence note
+
+`public/stockfish/` contains [Stockfish.js](https://github.com/nmrugg/stockfish.js), which is licensed under the **GPL-3.0** (see `public/stockfish/COPYING.txt`). Shipping it to browsers counts as distribution, so if you publish this app you must make the engine's source available, as the GPL requires (linking to the Stockfish.js repository is the usual way).

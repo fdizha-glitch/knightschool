@@ -1,10 +1,17 @@
-import { spawn, ChildProcess } from "child_process";
 import { Chess } from "chess.js";
 import type { EngineAnalysis, PVLine } from "@/types";
 
-const STOCKFISH_PATH = process.env.STOCKFISH_PATH ?? "stockfish";
-const DEFAULT_DEPTH = 15;
-const TIMEOUT_MS = 12000;
+// Stockfish 19 "lite, single-threaded" WASM build, served from /public.
+// Single-threaded needs no cross-origin isolation headers, so it runs on any
+// static host (Vercel, Netlify, GitHub Pages…). Licensed GPL-3.0 — see
+// public/stockfish/COPYING.txt.
+const ENGINE_URL = "/stockfish/stockfish-19-lite-single.js";
+const STARTUP_TIMEOUT_MS = 15000;
+const SEARCH_TIMEOUT_MS = 12000;
+
+/** Mate scores are folded into centipawns so evaluations stay comparable:
+ *  mate in N for White = MATE_CP - N, for Black = -(MATE_CP - N). */
+export const MATE_CP = 10000;
 
 interface UCIParsedLine {
   type: "info" | "bestmove" | "other";
@@ -43,142 +50,269 @@ function parseUCILine(line: string): UCIParsedLine {
   return result;
 }
 
-export function analyzePosition(
-  fen: string,
-  depth = DEFAULT_DEPTH,
-  multiPV = 3
-): Promise<EngineAnalysis> {
-  return new Promise((resolve, reject) => {
-    let engine: ChildProcess;
-
-    try {
-      engine = spawn(STOCKFISH_PATH, [], { stdio: ["pipe", "pipe", "pipe"] });
-    } catch {
-      reject(new Error("STOCKFISH_NOT_FOUND"));
-      return;
+/** Convert a UCI score (relative to the side to move) into White's point of
+ *  view, which is what the eval bar, coach and trainers all expect. */
+function toWhitePerspective(
+  parsed: UCIParsedLine,
+  sideSign: 1 | -1
+): { evaluation: number; mate: number | null } {
+  if (parsed.mate !== undefined) {
+    if (parsed.mate === 0) {
+      // Side to move is checkmated.
+      return { evaluation: -sideSign * MATE_CP, mate: 0 };
     }
-
-    const pvLines = new Map<number, PVLine>();
-    let bestMove = "";
-    let resolved = false;
-
-    const cleanup = () => {
-      try {
-        engine.kill();
-      } catch {}
+    const mate = parsed.mate * sideSign;
+    return {
+      evaluation: Math.sign(mate) * (MATE_CP - Math.abs(mate)),
+      mate,
     };
+  }
+  return { evaluation: (parsed.cp ?? 0) * sideSign, mate: null };
+}
 
-    const timer = setTimeout(() => {
-      if (!resolved) {
-        resolved = true;
-        cleanup();
-        reject(new Error("Stockfish analysis timed out"));
+// ─── Worker wrapper ────────────────────────────────────────────────────────
+
+class StockfishEngine {
+  private worker: Worker | null = null;
+  private ready: Promise<void> | null = null;
+  private queue: Promise<unknown> = Promise.resolve();
+  private searching = false;
+  private listener: ((line: string) => void) | null = null;
+  private onCrash: ((err: Error) => void) | null = null;
+
+  private init(): Promise<void> {
+    if (this.ready) return this.ready;
+
+    this.ready = new Promise<void>((resolve, reject) => {
+      if (typeof Worker === "undefined") {
+        reject(new Error("Web Workers are not available"));
+        return;
       }
-    }, TIMEOUT_MS);
 
-    engine.on("error", (err: NodeJS.ErrnoException) => {
-      if (!resolved) {
-        resolved = true;
+      let worker: Worker;
+      try {
+        worker = new Worker(ENGINE_URL);
+      } catch (err) {
+        reject(err instanceof Error ? err : new Error("Stockfish failed to load"));
+        return;
+      }
+      this.worker = worker;
+
+      const timer = setTimeout(
+        () => reject(new Error("Stockfish failed to start in time")),
+        STARTUP_TIMEOUT_MS
+      );
+
+      worker.onmessage = (e: MessageEvent) => {
+        const line = String(e.data);
+        if (line === "uciok") {
+          clearTimeout(timer);
+          resolve();
+        }
+        this.listener?.(line);
+      };
+
+      worker.onerror = (e: ErrorEvent) => {
         clearTimeout(timer);
-        cleanup();
-        if (err.code === "ENOENT") reject(new Error("STOCKFISH_NOT_FOUND"));
-        else reject(err);
-      }
+        const err = new Error(e.message || "Stockfish worker error");
+        reject(err);
+        // Mark the engine dead so later calls go straight to the fallback.
+        worker.terminate();
+        this.worker = null;
+        this.ready = Promise.reject(err);
+        this.ready.catch(() => undefined);
+        this.onCrash?.(err);
+      };
+
+      worker.postMessage("uci");
     });
 
-    let buffer = "";
-    engine.stdout?.on("data", (chunk: Buffer) => {
-      buffer += chunk.toString();
-      const lines = buffer.split("\n");
-      buffer = lines.pop() ?? "";
+    return this.ready;
+  }
 
-      for (const line of lines) {
-        const parsed = parseUCILine(line.trim());
+  private post(cmd: string) {
+    this.worker?.postMessage(cmd);
+  }
+
+  /** Analyse a position. Calls are serialised; starting a new analysis stops
+   *  the one in progress, which then resolves early with what it has. */
+  analyze(fen: string, depth: number, multiPV: number): Promise<EngineAnalysis> {
+    if (this.searching) this.post("stop");
+
+    const run = () => this.search(fen, depth, multiPV);
+    const next = this.queue.then(run, run);
+    this.queue = next.catch(() => undefined);
+    return next;
+  }
+
+  private async search(
+    fen: string,
+    depth: number,
+    multiPV: number
+  ): Promise<EngineAnalysis> {
+    await this.init();
+
+    return new Promise<EngineAnalysis>((resolve, reject) => {
+      const sideSign: 1 | -1 = fen.split(" ")[1] === "b" ? -1 : 1;
+      const pvLines = new Map<number, PVLine>();
+      this.searching = true;
+
+      const finish = () => {
+        clearTimeout(timer);
+        clearTimeout(deadline);
+        this.searching = false;
+        this.listener = null;
+        this.onCrash = null;
+      };
+
+      // If the search runs long, ask for the best move found so far…
+      const timer = setTimeout(() => this.post("stop"), SEARCH_TIMEOUT_MS);
+      // …and give up entirely if the engine never answers.
+      const deadline = setTimeout(() => {
+        finish();
+        reject(new Error("Stockfish did not respond"));
+      }, SEARCH_TIMEOUT_MS + 5000);
+
+      this.onCrash = (err) => {
+        finish();
+        reject(err);
+      };
+
+      this.listener = (line) => {
+        const parsed = parseUCILine(line);
 
         if (parsed.type === "info" && parsed.pv) {
           const key = parsed.multipv ?? 1;
           const existing = pvLines.get(key);
-          if (!existing || (parsed.depth ?? 0) > existing.depth) {
+          if (!existing || (parsed.depth ?? 0) >= existing.depth) {
             pvLines.set(key, {
               moves: parsed.pv,
-              evaluation: parsed.cp ?? 0,
-              mate: parsed.mate ?? null,
+              ...toWhitePerspective(parsed, sideSign),
               depth: parsed.depth ?? 0,
             });
           }
+        } else if (parsed.type === "info" && parsed.mate === 0) {
+          // Checkmated position: Stockfish reports "score mate 0" with no pv.
+          pvLines.set(1, {
+            moves: [],
+            ...toWhitePerspective(parsed, sideSign),
+            depth: 0,
+          });
         }
 
-        if (parsed.type === "bestmove" && parsed.bestMove) {
-          bestMove = parsed.bestMove;
-          if (!resolved) {
-            resolved = true;
-            clearTimeout(timer);
-            cleanup();
+        if (parsed.type === "bestmove") {
+          finish();
+          const lines = Array.from(pvLines.entries())
+            .sort(([a], [b]) => a - b)
+            .map(([, line]) => line)
+            .slice(0, multiPV);
+          const top = lines[0];
 
-            const topLine = pvLines.get(1);
-            const allLines = Array.from(pvLines.values()).sort(
-              (a, b) => a.depth - b.depth
-            );
-
-            resolve({
-              bestMove,
-              evaluation: topLine?.evaluation ?? 0,
-              mate: topLine?.mate ?? null,
-              lines: allLines.slice(0, multiPV),
-              depth: topLine?.depth ?? 0,
-            });
-          }
+          resolve({
+            bestMove: parsed.bestMove ?? "(none)",
+            evaluation: top?.evaluation ?? 0,
+            mate: top?.mate ?? null,
+            lines,
+            depth: top?.depth ?? 0,
+            source: "stockfish",
+          });
         }
-      }
+      };
+
+      this.post(`setoption name MultiPV value ${multiPV}`);
+      this.post(`position fen ${fen}`);
+      this.post(`go depth ${depth}`);
     });
-
-    // Start UCI session
-    const write = (cmd: string) => engine.stdin?.write(cmd + "\n");
-    write("uci");
-    write(`setoption name MultiPV value ${multiPV}`);
-    write("isready");
-    write(`position fen ${fen}`);
-    write(`go depth ${depth}`);
-  });
+  }
 }
 
-/** Lightweight fallback analysis when Stockfish binary is unavailable.
- *  Uses material balance + mobility as a proxy evaluation. */
-export function fallbackAnalysis(fen: string): EngineAnalysis {
+let engine: StockfishEngine | null = null;
+let warnedFallback = false;
+
+/** Analyse a position in the browser with Stockfish WASM. Falls back to a
+ *  basic material-based analysis if the engine cannot be loaded. */
+export async function analyzePosition(
+  fen: string,
+  depth = 15,
+  multiPV = 3
+): Promise<EngineAnalysis> {
+  engine ??= new StockfishEngine();
   try {
-    const chess = new Chess(fen);
-    const moves = chess.moves({ verbose: true });
-    if (moves.length === 0) {
-      return {
-        bestMove: "(none)",
-        evaluation: chess.isCheckmate() ? -9999 : 0,
-        mate: chess.isCheckmate() ? 0 : null,
-        lines: [],
-        depth: 0,
-      };
+    return await engine.analyze(fen, depth, multiPV);
+  } catch (err) {
+    if (!warnedFallback) {
+      console.warn("[stockfish] Engine unavailable, using basic fallback:", err);
+      warnedFallback = true;
     }
-    const bestMove = moves[0];
-    return {
-      bestMove: `${bestMove.from}${bestMove.to}`,
-      evaluation: 0,
-      mate: null,
-      lines: [
-        {
-          moves: [`${bestMove.from}${bestMove.to}`],
-          evaluation: 0,
-          mate: null,
-          depth: 1,
-        },
-      ],
-      depth: 1,
-    };
-  } catch {
-    return {
-      bestMove: "(none)",
-      evaluation: 0,
-      mate: null,
-      lines: [],
-      depth: 0,
-    };
+    return fallbackAnalysis(fen);
   }
+}
+
+// ─── Fallback ──────────────────────────────────────────────────────────────
+
+const PIECE_VALUES: Record<string, number> = { p: 100, n: 300, b: 300, r: 500, q: 900, k: 0 };
+
+function materialEval(chess: Chess): number {
+  let score = 0;
+  for (const row of chess.board()) {
+    for (const sq of row) {
+      if (sq) score += (sq.color === "w" ? 1 : -1) * PIECE_VALUES[sq.type];
+    }
+  }
+  return score;
+}
+
+/** Lightweight fallback when the WASM engine is unavailable: one-ply search
+ *  on material, preferring checkmate. Weak, but plays legal, sensible moves. */
+export function fallbackAnalysis(fen: string): EngineAnalysis {
+  const empty: EngineAnalysis = {
+    bestMove: "(none)",
+    evaluation: 0,
+    mate: null,
+    lines: [],
+    depth: 0,
+    source: "fallback",
+  };
+
+  let chess: Chess;
+  try {
+    chess = new Chess(fen);
+  } catch {
+    return empty;
+  }
+
+  const sideSign = chess.turn() === "w" ? 1 : -1;
+
+  if (chess.isGameOver()) {
+    return chess.isCheckmate()
+      ? { ...empty, evaluation: -sideSign * MATE_CP, mate: 0 }
+      : empty;
+  }
+
+  let best: { uci: string; score: number } | null = null;
+  for (const move of chess.moves({ verbose: true })) {
+    chess.move(move);
+    const score = chess.isCheckmate()
+      ? sideSign * MATE_CP
+      : chess.isDraw()
+        ? 0
+        : materialEval(chess);
+    chess.undo();
+
+    const uci = `${move.from}${move.to}${move.promotion ?? ""}`;
+    if (!best || score * sideSign > best.score * sideSign) {
+      best = { uci, score };
+    }
+  }
+
+  if (!best) return empty;
+
+  const evaluation = materialEval(chess);
+  return {
+    ...empty,
+    bestMove: best.uci,
+    evaluation,
+    lines: [{ moves: [best.uci], evaluation, mate: null, depth: 1 }],
+    depth: 1,
+  };
 }
